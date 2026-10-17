@@ -1,12 +1,12 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080808">
 <title>Photo Consent</title>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
 <style>
 *{box-sizing:border-box}
 body{
@@ -22,59 +22,77 @@ body{
 }
 h1{color:#d5b36a}
 p{color:#ccc;line-height:1.6}
-video,img{width:100%;border-radius:12px;margin-top:15px}
+video,img{
+  width:100%;border-radius:12px;margin-top:15px
+}
 button{
   width:100%;padding:15px;margin-top:15px;
   background:#c6a15b;color:#080808;border:0;
   border-radius:9px;font-weight:bold;font-size:16px;
   cursor:pointer
 }
-button:disabled{opacity:.5}
-label{display:flex;gap:10px;text-align:left;
-margin-top:18px;color:#ddd;line-height:1.5}
-input{width:20px;height:20px;flex-shrink:0}
+button:disabled{opacity:.5;cursor:not-allowed}
+label{
+  display:flex;gap:10px;text-align:left;
+  margin-top:18px;color:#ddd;line-height:1.5
+}
+input[type=checkbox]{
+  width:20px;height:20px;flex-shrink:0
+}
 #status{margin-top:15px;color:#e3c47f}
-.hidden{display:none}
+.hidden{display:none!important}
+.small{font-size:12px;color:#999}
 </style>
 </head>
+
 <body>
 <div class="card">
-  <h1>Photo Consent</h1>
-  <p>
-    This website allows you to take a photo using your camera.
-    If you continue, you can preview your photo and choose
-    whether to email it to aland.qaes355@gmail.com.
-    Nothing is sent without your final confirmation.
-  </p>
 
-  <button id="start">Allow Camera</button>
+<h1>Photo Consent</h1>
 
-  <video id="video" autoplay playsinline class="hidden"></video>
+<p>
+This page lets you take a photo using your camera.
+If you choose to send it, the photo will be emailed to
+<strong>aland.qaes355@gmail.com</strong>.
+You can review your photo before deciding whether to send it.
+</p>
 
-  <button id="take" class="hidden">Take Photo</button>
+<button id="start">Allow Camera</button>
 
-  <canvas id="canvas" class="hidden"></canvas>
-  <img id="preview" class="hidden" alt="Photo preview">
+<video id="video" autoplay playsinline class="hidden"></video>
 
-  <div id="sendArea" class="hidden">
-    <label>
-      <input type="checkbox" id="consent">
-      I agree to send this photo to
-      aland.qaes355@gmail.com.
-    </label>
-    <button id="send" disabled>Send Photo</button>
-  </div>
+<button id="take" class="hidden">Take Photo</button>
 
-  <button id="retake" class="hidden">Retake Photo</button>
-  <div id="status"></div>
+<canvas id="canvas" class="hidden"></canvas>
+
+<img id="preview" class="hidden" alt="Your photo preview">
+
+<div id="sendArea" class="hidden">
+
+<label>
+<input type="checkbox" id="consent">
+I have reviewed this photo and agree to send it to
+aland.qaes355@gmail.com.
+</label>
+
+<button id="send" disabled>Send Photo</button>
+
+</div>
+
+<button id="retake" class="hidden">Retake Photo</button>
+
+<div id="status"></div>
+
+<p class="small">
+Your camera is not activated until you press Allow Camera.
+No photo is sent until you confirm.
+</p>
+
 </div>
 
 <script>
-const SERVICE_ID = "service_r370oq4";
-const TEMPLATE_ID = "template_5dlf3ba";
-const PUBLIC_KEY = "Zkrko9SLwUVuvGkbu";
-
-emailjs.init({publicKey: PUBLIC_KEY});
+const GOOGLE_SCRIPT_URL =
+"https://script.google.com/macros/s/AKfycbya6bGTfdaxInT7Qk0CYFCYWqz40cyBdi7DKy8ejUR7GJ9jMioLEDhMxdRfBAWEI8Jl/exec";
 
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
@@ -92,36 +110,56 @@ let photoData = null;
 
 start.onclick = async () => {
   try {
-    status.textContent = "Waiting for camera permission...";
+    status.textContent = "Requesting camera permission...";
 
     stream = await navigator.mediaDevices.getUserMedia({
-      video: {facingMode: "user"},
-      audio: false
+      video: {facingMode:"user"},
+      audio:false
     });
 
     video.srcObject = stream;
     video.classList.remove("hidden");
     take.classList.remove("hidden");
     start.classList.add("hidden");
-    status.textContent = "Camera ready.";
-  } catch (error) {
+
+    status.textContent = "Camera ready. Take your photo when ready.";
+
+  } catch(error) {
     status.textContent =
-      "Camera unavailable. Please allow camera access and try again.";
+      "Camera access was not granted. Please check your browser permissions.";
   }
 };
 
 take.onclick = () => {
-  const width = Math.min(video.videoWidth, 1280);
-  const height = video.videoHeight * width / video.videoWidth;
+  if (!video.videoWidth) {
+    status.textContent = "Camera is not ready yet.";
+    return;
+  }
+
+  const width = Math.min(video.videoWidth,1280);
+  const height = Math.round(
+    video.videoHeight * width / video.videoWidth
+  );
 
   canvas.width = width;
   canvas.height = height;
 
-  canvas.getContext("2d").drawImage(video, 0, 0, width, height);
+  canvas.getContext("2d").drawImage(
+    video,0,0,width,height
+  );
 
-  photoData = canvas.toDataURL("image/jpeg", 0.75).split(",")[1];
+  photoData = canvas.toDataURL(
+    "image/jpeg",0.65
+  ).split(",")[1];
+
+  if (photoData.length > 3 * 1024 * 1024) {
+    status.textContent = "Photo is too large. Please try again.";
+    photoData = null;
+    return;
+  }
 
   preview.src = "data:image/jpeg;base64," + photoData;
+
   preview.classList.remove("hidden");
   video.classList.add("hidden");
   take.classList.add("hidden");
@@ -141,9 +179,11 @@ retake.onclick = () => {
   retake.classList.add("hidden");
   video.classList.remove("hidden");
   take.classList.remove("hidden");
+
   consent.checked = false;
   send.disabled = true;
   photoData = null;
+
   status.textContent = "Take another photo.";
 };
 
@@ -152,24 +192,39 @@ send.onclick = async () => {
 
   send.disabled = true;
   retake.disabled = true;
-  status.textContent = "Sending your photo...";
+
+  status.textContent = "Submitting your photo...";
+
+  const payload = {
+    consent:true,
+    photo:photoData,
+    website:""
+  };
 
   try {
-    await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
-      photo_data: photoData,
-      photo_name: "camera-photo.jpg",
-      message: "A visitor voluntarily submitted a photo."
+    await fetch(GOOGLE_SCRIPT_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{
+        "Content-Type":"text/plain;charset=utf-8"
+      },
+      body:JSON.stringify(payload)
     });
 
-    status.textContent = "Photo sent successfully. Thank you!";
+    status.textContent =
+      "Your submission request has been sent. Delivery is not yet confirmed.";
+
     sendArea.classList.add("hidden");
     retake.classList.add("hidden");
 
-    if (stream) {
+    if(stream) {
       stream.getTracks().forEach(track => track.stop());
     }
-  } catch (error) {
-    status.textContent = "Sending failed. Please try again.";
+
+  } catch(error) {
+    status.textContent =
+      "Could not submit. Please check your connection and try again.";
+
     send.disabled = false;
     retake.disabled = false;
   }
